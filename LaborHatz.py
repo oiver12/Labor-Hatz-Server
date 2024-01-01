@@ -149,13 +149,13 @@ def get_status_seeker():
 @app.route('/runner/status', methods=['GET'])
 def get_status_runner():
     if not started or finished:
-        return jsonify(wait=-1),500
+        return jsonify(wait=-1),400
     if gameState.runnerHasMadeTurn:
         tillNextMove = TIMOUT_TIME - (pygame.time.get_ticks()-gameState.lastTickTime) / 1000
         return jsonify(wait=tillNextMove), 400
     seekers_data = [seeker.to_json() for seeker in seekers_list]
     lights_data = [light.to_json() for light in lights_touched]
-    runner_data = [runner.to_json()]
+    runner_data = runner.to_json()
     return jsonify(runner = runner_data, seekers=seekers_data, lights=lights_data, finished=finished, current_tick=gameState.currentTick), 200
 
 # Route for POST /move-seekers
