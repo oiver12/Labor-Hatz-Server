@@ -127,9 +127,9 @@ def isLegalMove(x_direction, y_direction, currentX, currentY):
 
     
 # Example usage
-seeker1 = Seeker(x=10, y=0, id=1)
-seeker2 = Seeker(x=15, y=0, id=2)
-seeker3 = Seeker(x=21, y=0, id=3)
+seeker1 = Seeker(x=10, y=0, id=0)
+seeker2 = Seeker(x=15, y=0, id=1)
+seeker3 = Seeker(x=21, y=0, id=2)
 
 runner = RunnerHazel(0, 0)
 seekers_list = [seeker1, seeker2, seeker3]
@@ -181,11 +181,11 @@ def move_seekers():
             if seeker_id == 2:
                 seeker = seeker3
             if isLegalMove(x_direction, y_direction, seeker.x, seeker.y):
-                if seeker_id == 1:
+                if seeker_id == 0:
                     gameState.lastSeeker1Move = (x_direction, y_direction)
-                if seeker_id == 2:
+                if seeker_id == 1:
                     gameState.lastSeeker2Move = (x_direction, y_direction)
-                if seeker_id == 3:
+                if seeker_id == 2:
                     gameState.lastSeeker3Move = (x_direction, y_direction)
                 gameState.seekerHasMadeTurn = True
             else:
