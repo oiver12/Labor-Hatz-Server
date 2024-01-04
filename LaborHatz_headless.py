@@ -1,9 +1,11 @@
-
 import threading
 
 import time as time
 import numpy as np
 from flask import Flask, request, jsonify
+
+import sys
+import select
 
 app = Flask(__name__)
 
@@ -43,12 +45,6 @@ grid = np.array([
     [1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1],
     [1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1]])
 lights_touched = []
-
-#cycle trough grid and print when the value is 2 the index
-for row in range(len(grid)):
-    for col in range(len(grid[row])):
-        if grid[row,col] == 2:
-            print(row,col)
 
 positions_with_value_lights = {
  (2, 6): 0, (2, 7): 0,
@@ -150,6 +146,7 @@ seekers_list = [seeker1, seeker2, seeker3]
 def get_status_seeker():
     if not started:
         gameState.seekerHasJoined = True
+        print("Seeker joined")
         return jsonify(wait=-1),400
     if gameState.seekerHasMadeTurn and finished == 0:
         currTime = int(round(time.time() * 1000))
@@ -162,6 +159,7 @@ def get_status_seeker():
 @app.route('/runner/status', methods=['GET'])
 def get_status_runner():
     if not started:
+        print("Runner joined")
         gameState.runnerHasJoined = True
         return jsonify(wait=-1),400
     if gameState.runnerHasMadeTurn and finished == 0:
@@ -230,6 +228,11 @@ def move_runner():
         return jsonify("Wrong json"),500
     return jsonify("ok"), 200
 
+@app.route('/reset', methods=['POST'])
+def reset():
+    restartGame()
+    return jsonify("ok"), 200
+
 def run_flask():
     app.run(host='0.0.0.0',debug=False)
 
@@ -245,14 +248,17 @@ def update_Game():
     global gameState
     global finished
     currTime = int(round(time.time() * 1000))  
-    if not started or finished:
+    if not started and finished == -1:
         if gameState.seekerHasJoined and gameState.runnerHasJoined:
             start_Game()
         return
     if (currTime-gameState.lastTickTime) / 1000 < TIMOUT_TIME:
         return
     if gameState.currentTick*TIMOUT_TIME >= 20:
-        print("Finished!!! Time is up")
+        if finished != 2:
+            print("Finished!!! Time is up")
+            print("Type reset to restart")
+            print("----------------------------------")
         finished = 2
         return
     #update Game:
@@ -274,7 +280,10 @@ def update_Game():
     distance2 = np.sqrt((runner.x - seeker2.x)**2 + (runner.y - seeker2.y)**2)
     distance3 = np.sqrt((runner.x - seeker3.x)**2 + (runner.y - seeker3.y)**2)
     if distance1 <= 2 or distance2 <= 2 or distance3 <= 2:
-        print("Finished!!!!")
+        if finished != 1:
+            print("Finished! Seekers won!")
+            print("Type reset to restart")
+            print("----------------------------------")
         finished = 1
         return
 
@@ -283,45 +292,77 @@ def update_Game():
     gameState.lastTickTime = int(round(time.time() * 1000))
     gameState.currentTick += 1
 
-# def draw_seeker(pos_x, pos_y, color, lightcolor, screen):
-#     pygame.draw.rect(screen, color, (pos_x * CELL_SIZE, pos_y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-#     if canDrawSquareSeeker(0,1,pos_x,pos_y):
-#         pygame.draw.rect(screen, lightcolor, (pos_x * CELL_SIZE, (pos_y+1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-#     if canDrawSquareSeeker(0,-1,pos_x,pos_y):
-#         pygame.draw.rect(screen, lightcolor, (pos_x * CELL_SIZE, (pos_y-1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-#     if canDrawSquareSeeker(1,0,pos_x,pos_y):
-#         pygame.draw.rect(screen, lightcolor, ((pos_x+1) * CELL_SIZE, pos_y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-#     if canDrawSquareSeeker(-1,0,pos_x,pos_y):
-#         pygame.draw.rect(screen, lightcolor, ((pos_x-1) * CELL_SIZE, pos_y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-#     if canDrawSquareSeeker(1,1,pos_x,pos_y):
-#         pygame.draw.rect(screen, lightcolor, ((pos_x+1) * CELL_SIZE, (pos_y+1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-#     if canDrawSquareSeeker(-1,-1,pos_x,pos_y):
-#         pygame.draw.rect(screen, lightcolor, ((pos_x-1) * CELL_SIZE, (pos_y-1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-#     if canDrawSquareSeeker(1,-1,pos_x,pos_y):
-#         pygame.draw.rect(screen, lightcolor, ((pos_x+1) * CELL_SIZE, (pos_y-1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-#     if canDrawSquareSeeker(-1,1,pos_x,pos_y):
-#         pygame.draw.rect(screen, lightcolor, ((pos_x-1) * CELL_SIZE, (pos_y+1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+def is_input_ready():
+    return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
+
+def restartGame():
+    print("Restart Game")
+    global finished, started
+    finished = -1
+    started = False
+    gameState.currentTick = 0
+    seeker1.x = 10
+    seeker1.y = 0
+    seeker2.x = 15
+    seeker2.y = 0
+    seeker3.x = 21
+    seeker3.y = 0
+    runner.x = 15
+    runner.y = 19
+    gameState.seekerHasMadeTurn = False
+    gameState.runnerHasMadeTurn = False
+    gameState.lastSeeker1Move = (0, 0)
+    gameState.lastSeeker2Move = (0,0)
+    gameState.lastSeeker3Move = (0,0)
+    gameState.lastRunnerMove = (0,0)
+    gameState.runnerHasJoined = False
+    gameState.seekerHasJoined = False
+    lights_touched.clear()
+
+def run_cli():
+    if is_input_ready():
+        user_input = input("")
+        if user_input.lower() == '?':
+            # Add logic to show all available commands
+            print("Available commands: reset, status, exit")
+        elif user_input.lower() == 'reset':
+            # Add logic to reset the game
+            restartGame()
+            print("---------------------")
+        elif user_input.lower() == 'status':
+            global finished
+            if finished == -1:
+                print("Game not started.")
+            elif finished == 0:
+                print("Game is running.")
+            elif finished == 1:
+                print("Game finished. Runner won.")
+            elif finished == 2:
+                print("Game finished. Seekers won.")
+        else:
+            print("Invalid command. Available commands: reset, status, exit")
 
 def run_game():
     # Main game loop
     running = True
+    print("Programm started")
+    print("Enter a command. Available commands: reset, status, exit")
     while running:
         update_Game()
+        run_cli()
         # Define UI elements
         timeLeft = 20 - gameState.currentTick * TIMOUT_TIME
         timeLeft = round(timeLeft, 1)
         if(timeLeft < 0):
             timeLeft = 0
 
+
 if __name__ == '__main__':
-    # run_flask()
     # Start Flask in a separate thread
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
-
     # # Start Pygame in the main thread
     run_game()
-
     # # Wait for the Flask thread to finish
     flask_thread.join()
 
