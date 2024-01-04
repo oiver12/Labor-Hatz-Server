@@ -1,11 +1,10 @@
-import pygame
+
 import threading
 
+import time as time
 import numpy as np
 from flask import Flask, request, jsonify
 
-# Initialize Pygame
-pygame.init()
 app = Flask(__name__)
 
 # Define colors
@@ -106,8 +105,8 @@ class Light:
 
 class GameState:
     def __init__(self):
-        self.startTime = pygame.time.get_ticks()
-        self.lastTickTime = pygame.time.get_ticks()
+        self.startTime = int(round(time.time() * 1000))
+        self.lastTickTime = int(round(time.time() * 1000))
         self.currentTick = 0
         self.seekerHasMadeTurn = False
         self.runnerHasMadeTurn = False
@@ -153,7 +152,8 @@ def get_status_seeker():
         gameState.seekerHasJoined = True
         return jsonify(wait=-1),400
     if gameState.seekerHasMadeTurn and finished == 0:
-        tillNextMove = TIMOUT_TIME - (pygame.time.get_ticks()-gameState.lastTickTime) / 1000
+        currTime = int(round(time.time() * 1000))
+        tillNextMove = TIMOUT_TIME - (currTime-gameState.lastTickTime) / 1000
         return jsonify(wait=tillNextMove), 400
     seekers_data = [seeker.to_json() for seeker in seekers_list]
     lights_data = [light.to_json() for light in lights_touched]
@@ -165,7 +165,8 @@ def get_status_runner():
         gameState.runnerHasJoined = True
         return jsonify(wait=-1),400
     if gameState.runnerHasMadeTurn and finished == 0:
-        tillNextMove = TIMOUT_TIME - (pygame.time.get_ticks()-gameState.lastTickTime) / 1000
+        currTime = int(round(time.time() * 1000))
+        tillNextMove = TIMOUT_TIME - (currTime-gameState.lastTickTime) / 1000
         return jsonify(wait=tillNextMove), 400
     seekers_data = [seeker.to_json() for seeker in seekers_list]
     lights_data = [light.to_json() for light in lights_touched]
@@ -235,20 +236,23 @@ def run_flask():
 def start_Game():
     global started, gameState, finished
     started = True
-    gameState.startTime = pygame.time.get_ticks()
-    gameState.lastTickTime = pygame.time.get_ticks()
+    gameState.startTime = int(round(time.time() * 1000))
+    gameState.lastTickTime = int(round(time.time() * 1000))
     finished = 0
 
 def update_Game():
     global started
     global gameState
     global finished
+    currTime = int(round(time.time() * 1000))  
     if not started or finished:
+        if gameState.seekerHasJoined and gameState.runnerHasJoined:
+            start_Game()
         return
-    if (pygame.time.get_ticks()-gameState.lastTickTime) / 1000 < TIMOUT_TIME:
+    if (currTime-gameState.lastTickTime) / 1000 < TIMOUT_TIME:
         return
     if gameState.currentTick*TIMOUT_TIME >= 20:
-        print("Finished!!!!")
+        print("Finished!!! Time is up")
         finished = 2
         return
     #update Game:
@@ -276,104 +280,38 @@ def update_Game():
 
     gameState.runnerHasMadeTurn = False
     gameState.seekerHasMadeTurn = False
-    gameState.lastTickTime = pygame.time.get_ticks()
+    gameState.lastTickTime = int(round(time.time() * 1000))
     gameState.currentTick += 1
 
-def draw_seeker(pos_x, pos_y, color, lightcolor, screen):
-    pygame.draw.rect(screen, color, (pos_x * CELL_SIZE, pos_y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-    if canDrawSquareSeeker(0,1,pos_x,pos_y):
-        pygame.draw.rect(screen, lightcolor, (pos_x * CELL_SIZE, (pos_y+1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-    if canDrawSquareSeeker(0,-1,pos_x,pos_y):
-        pygame.draw.rect(screen, lightcolor, (pos_x * CELL_SIZE, (pos_y-1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-    if canDrawSquareSeeker(1,0,pos_x,pos_y):
-        pygame.draw.rect(screen, lightcolor, ((pos_x+1) * CELL_SIZE, pos_y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-    if canDrawSquareSeeker(-1,0,pos_x,pos_y):
-        pygame.draw.rect(screen, lightcolor, ((pos_x-1) * CELL_SIZE, pos_y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-    if canDrawSquareSeeker(1,1,pos_x,pos_y):
-        pygame.draw.rect(screen, lightcolor, ((pos_x+1) * CELL_SIZE, (pos_y+1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-    if canDrawSquareSeeker(-1,-1,pos_x,pos_y):
-        pygame.draw.rect(screen, lightcolor, ((pos_x-1) * CELL_SIZE, (pos_y-1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-    if canDrawSquareSeeker(1,-1,pos_x,pos_y):
-        pygame.draw.rect(screen, lightcolor, ((pos_x+1) * CELL_SIZE, (pos_y-1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-    if canDrawSquareSeeker(-1,1,pos_x,pos_y):
-        pygame.draw.rect(screen, lightcolor, ((pos_x-1) * CELL_SIZE, (pos_y+1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+# def draw_seeker(pos_x, pos_y, color, lightcolor, screen):
+#     pygame.draw.rect(screen, color, (pos_x * CELL_SIZE, pos_y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+#     if canDrawSquareSeeker(0,1,pos_x,pos_y):
+#         pygame.draw.rect(screen, lightcolor, (pos_x * CELL_SIZE, (pos_y+1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+#     if canDrawSquareSeeker(0,-1,pos_x,pos_y):
+#         pygame.draw.rect(screen, lightcolor, (pos_x * CELL_SIZE, (pos_y-1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+#     if canDrawSquareSeeker(1,0,pos_x,pos_y):
+#         pygame.draw.rect(screen, lightcolor, ((pos_x+1) * CELL_SIZE, pos_y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+#     if canDrawSquareSeeker(-1,0,pos_x,pos_y):
+#         pygame.draw.rect(screen, lightcolor, ((pos_x-1) * CELL_SIZE, pos_y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+#     if canDrawSquareSeeker(1,1,pos_x,pos_y):
+#         pygame.draw.rect(screen, lightcolor, ((pos_x+1) * CELL_SIZE, (pos_y+1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+#     if canDrawSquareSeeker(-1,-1,pos_x,pos_y):
+#         pygame.draw.rect(screen, lightcolor, ((pos_x-1) * CELL_SIZE, (pos_y-1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+#     if canDrawSquareSeeker(1,-1,pos_x,pos_y):
+#         pygame.draw.rect(screen, lightcolor, ((pos_x+1) * CELL_SIZE, (pos_y-1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+#     if canDrawSquareSeeker(-1,1,pos_x,pos_y):
+#         pygame.draw.rect(screen, lightcolor, ((pos_x-1) * CELL_SIZE, (pos_y+1) * CELL_SIZE, CELL_SIZE, CELL_SIZE))
 
-def run_pygame():
-    # Initialize the window
-    screen = pygame.display.set_mode(WINDOW_SIZE)
-    pygame.display.set_caption('Maze')
-
-    # Define fonts
-    font = pygame.font.Font(None, 36)
-
+def run_game():
     # Main game loop
     running = True
     while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_s]:
-            print("Start Game")
-            start_Game()
-
-        if keys[pygame.K_r]:
-            #restart game
-            print("Restart Game")
-            global finished, started
-            finished = -1
-            started = False
-            gameState.currentTick = 0
-            seeker1.x = 10
-            seeker1.y = 0
-            seeker2.x = 15
-            seeker2.y = 0
-            seeker3.x = 21
-            seeker3.y = 0
-            runner.x = 15
-            runner.y = 19
-            gameState.seekerHasMadeTurn = False
-            gameState.runnerHasMadeTurn = False
-            gameState.lastSeeker1Move = (0, 0)
-            gameState.lastSeeker2Move = (0,0)
-            gameState.lastSeeker3Move = (0,0)
-            gameState.lastRunnerMove = (0,0)
-            lights_touched.clear()
-
         update_Game()
-
-        # Clear the screen
-        screen.fill(BLACK)
-
-        # Draw the maze
-        for row in range(GRID_HEIGHT):
-            for col in range(GRID_WIDTH):
-                if grid[row, col] == 1:
-                    pygame.draw.rect(screen, WHITE, (col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-                if grid[row,col] == 2:
-                    pygame.draw.rect(screen, BROWN, (col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-        #rot links 1, grün mitte 2, gelb rechts 3
-        #blue runner
-        draw_seeker(seeker1.x, seeker1.y, RED, LIGHTRED, screen)
-        draw_seeker(seeker2.x, seeker2.y, GREEN, LIGHTGREEN, screen)
-        draw_seeker(seeker3.x, seeker3.y, YELLOW, LIGHTYELLOW, screen)
-        pygame.draw.rect(screen, BLUE, (runner.x*CELL_SIZE, runner.y*CELL_SIZE, CELL_SIZE, CELL_SIZE))
         # Define UI elements
-        # button_rect = pygame.Rect(WINDOW_SIZE[0]/2 - 40, WINDOW_SIZE[1]-55, 50, 50)
-        # pygame.draw.rect(screen, (105, 105, 105), button_rect)
         timeLeft = 20 - gameState.currentTick * TIMOUT_TIME
         timeLeft = round(timeLeft, 1)
         if(timeLeft < 0):
             timeLeft = 0
-        text = font.render(f"{timeLeft} s", True, WHITE)
-        screen.blit(text, ((WINDOW_SIZE[0]//2) - text.get_width() // 2, (WINDOW_SIZE[1]-30) - text.get_height() // 2))
-
-        # Update the display
-        pygame.display.flip()
-
-    # Quit Pygame
-    pygame.quit()
 
 if __name__ == '__main__':
     # run_flask()
@@ -381,11 +319,8 @@ if __name__ == '__main__':
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
 
-    # Wait for a moment to ensure Flask is up before opening the browser
-    pygame.time.wait(1000)
-
     # # Start Pygame in the main thread
-    run_pygame()
+    run_game()
 
     # # Wait for the Flask thread to finish
     flask_thread.join()
